@@ -133,7 +133,13 @@ export default function App() {
   const [upload, setUpload] = useState(false);
   const [time, setTime] = useState(new Date());
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  const [processing, setProcessing] = useState(false);
+  const [uploadMonth, setUploadMonth] = useState(
+    new Date().toLocaleString('en-IN', { month: 'short' })
+  );
+  const [uploadYear, setUploadYear] = useState(new Date().getFullYear());
+
+  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const years  = [2024, 2025, 2026, 2027];
   const [uploadType, setUploadType] = useState("consumption");
   const [successMsg, setSuccessMsg] = useState("");
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -216,13 +222,13 @@ export default function App() {
           updated[1] = { ...updated[1], n: nearExpiry, desc: `${nearExpiry} items will expire in next 60 days` };
           return updated;
         });
-        setSuccessMsg(`✅ Purchase file processed! Holding Cost: ₹${holdingCost}L | Stock Value: ₹${stockValueMRP}Cr | Near Expiry: ${nearExpiry} items`);
+        setSuccessMsg(`✅ ${uploadMonth} ${uploadYear} — Purchase processed! Holding Cost: ₹${holdingCost}L | Stock Value: ₹${stockValueMRP}Cr | Near Expiry: ${nearExpiry} items`);
       } else if (uploadType === "consumption") {
         const { inventoryDays, turnover } = calculateConsumptionKPIs(data);
         const items = getTopItems(data);
         setKpis(prev => ({ ...prev, inventoryDays, turnover }));
         if (items.length > 0) setTopItems(items);
-        setSuccessMsg(`✅ Consumption file processed! Inventory Days: ${inventoryDays}, Turnover: ${turnover}x`);
+        setSuccessMsg(`✅ ${uploadMonth} ${uploadYear} — Consumption processed! Inventory Days: ${inventoryDays}, Turnover: ${turnover}x`);
         // Update trend with new real value
         setTrendData(prev => {
           const updated = [...prev];
@@ -247,24 +253,22 @@ export default function App() {
         if (monthlyChart && monthlyChart.length > 0) {
           setBounceBarData(monthlyChart);
         }
-        setSuccessMsg(`✅ Bounce file processed! ${latestMonth}: ${latestCount} bounces → Rate: ${bounceRate}% | 6 months total: ${totalBounced} | Stock Out: ${stockOut} | Already Has: ${alreadyHas}`);
+        setSuccessMsg(`✅ ${uploadMonth} ${uploadYear} — Bounce processed! Rate: ${bounceRate}% | Total: ${totalBounced} | Stock Out: ${stockOut} | Already Has: ${alreadyHas}`);
       }
       setLastUpdated(new Date());
 
       // ── Save to Supabase ──────────────────────────────────────────────────
       try {
-        const now = new Date();
-        const monthName = now.toLocaleString('en-IN', { month: 'short' });
         const currentKpis = await getLatestKPI();
         await saveKPISnapshot({
-          month:             monthName,
-          year:              now.getFullYear(),
-          inventory_days:    uploadType === "consumption" ? parseFloat(kpis.inventoryDays) : (currentKpis?.inventory_days || null),
-          turnover:          uploadType === "consumption" ? parseFloat(kpis.turnover)       : (currentKpis?.turnover       || null),
-          holding_cost:      uploadType === "purchase"    ? parseFloat(kpis.holdingCost)   : (currentKpis?.holding_cost   || null),
-          bounce_rate:       uploadType === "bounce"      ? parseFloat(kpis.bounceRate)     : (currentKpis?.bounce_rate    || null),
-          stock_value:       uploadType === "purchase"    ? parseFloat(kpis.stockValue)     : (currentKpis?.stock_value    || null),
-          uploaded_at:       now.toISOString(),
+          month:          uploadMonth,
+          year:           uploadYear,
+          inventory_days: uploadType === "consumption" ? parseFloat(kpis.inventoryDays) : (currentKpis?.inventory_days || null),
+          turnover:       uploadType === "consumption" ? parseFloat(kpis.turnover)       : (currentKpis?.turnover       || null),
+          holding_cost:   uploadType === "purchase"    ? parseFloat(kpis.holdingCost)   : (currentKpis?.holding_cost   || null),
+          bounce_rate:    uploadType === "bounce"      ? parseFloat(kpis.bounceRate)     : (currentKpis?.bounce_rate    || null),
+          stock_value:    uploadType === "purchase"    ? parseFloat(kpis.stockValue)     : (currentKpis?.stock_value    || null),
+          uploaded_at:    new Date().toISOString(),
         });
         // Refresh trend data
         const history = await getLast6Months();
@@ -403,24 +407,39 @@ export default function App() {
 
         {/* UPLOAD PANEL */}
         {upload && (
-          <div style={{ background: "#EFF6FF", borderBottom: `1px solid #BFDBFE`, padding: "12px 16px", flexShrink: 0 }}>
-            <div style={{ fontSize: 13, color: C.blue, fontWeight: 700, marginBottom: 10 }}>📂 Upload Today's Data File</div>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-              <select value={uploadType} onChange={e => setUploadType(e.target.value)} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "6px 12px", fontSize: 12, color: C.text, background: "#fff" }}>
-                <option value="consumption">Consumption File (for Inventory Days & Turnover)</option>
-                <option value="purchase">Purchase File (for Holding Cost)</option>
-                <option value="bounce">Bounce Prescription File (for Bounce Rate)</option>
+        <div style={{ background: "#EFF6FF", borderBottom: `1px solid #BFDBFE`, padding: "12px 16px", flexShrink: 0 }}>
+          <div style={{ fontSize: 13, color: C.blue, fontWeight: 700, marginBottom: 10 }}>📂 Upload Data File</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+
+            {/* File Type */}
+            <select value={uploadType} onChange={e => setUploadType(e.target.value)} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "6px 10px", fontSize: 12, color: C.text, background: "#fff" }}>
+              <option value="consumption">📊 Consumption File (Inventory Days & Turnover)</option>
+              <option value="purchase">💰 Purchase File (Holding Cost & Stock Value)</option>
+              <option value="bounce">🔴 Bounce File (Bounce Rate)</option>
+            </select>
+
+            {/* Month Selector */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>Data Month:</span>
+              <select value={uploadMonth} onChange={e => setUploadMonth(e.target.value)} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "6px 10px", fontSize: 12, color: C.text, background: "#fff" }}>
+                {months.map(m => <option key={m} value={m}>{m}</option>)}
               </select>
-              <input ref={fileRef} type="file" accept=".xlsx,.csv" onChange={handleFileUpload} style={{ fontSize: 12 }} />
-              {processing && <span style={{ fontSize: 12, color: C.blue, fontWeight: 600 }}>⏳ Processing...</span>}
-              <button onClick={() => { setUpload(false); setSuccessMsg(""); }} style={{ marginLeft: "auto", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>✕</button>
+              <select value={uploadYear} onChange={e => setUploadYear(parseInt(e.target.value))} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "6px 10px", fontSize: 12, color: C.text, background: "#fff" }}>
+                {years.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
             </div>
-            {successMsg && (
-              <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: successMsg.startsWith("✅") ? "#DCFCE7" : "#FEE2E2", fontSize: 12, color: successMsg.startsWith("✅") ? C.green : C.red, fontWeight: 600 }}>
-                {successMsg}
-              </div>
-            )}
+
+            {/* File Input */}
+            <input ref={fileRef} type="file" accept=".xlsx,.csv" onChange={handleFileUpload} style={{ fontSize: 12 }} />
+            {processing && <span style={{ fontSize: 12, color: C.blue, fontWeight: 600 }}>⏳ Processing...</span>}
+            <button onClick={() => { setUpload(false); setSuccessMsg(""); }} style={{ marginLeft: "auto", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>✕</button>
           </div>
+          {successMsg && (
+            <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: successMsg.startsWith("✅") ? "#DCFCE7" : "#FEE2E2", fontSize: 12, color: successMsg.startsWith("✅") ? C.green : C.red, fontWeight: 600 }}>
+              {successMsg}
+            </div>
+          )}
+        </div>
         )}
 
         {/* BODY */}
