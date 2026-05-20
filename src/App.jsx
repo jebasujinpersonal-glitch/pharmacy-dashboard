@@ -208,6 +208,8 @@ export default function App() {
     }
     loadFromDB();
   }, []);
+
+  async function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
     setProcessing(true);
