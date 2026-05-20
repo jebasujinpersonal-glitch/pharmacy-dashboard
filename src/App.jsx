@@ -8,6 +8,7 @@ import {
   readExcelFile, calculateHoldingCost, calculateConsumptionKPIs,
   calculateBounceRate, getTopItems, getBounceAlerts, getBounceReasons
 } from "./kpiCalculator";
+import { saveKPISnapshot, getLatestKPI, getLast6Months } from "./supabase";
 
 const C = {
   primary: "#2B3A8F", bg: "#F0F2F8", white: "#FFFFFF",
@@ -169,7 +170,38 @@ export default function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  async function handleFileUpload(e) {
+  // ── Load from Supabase on startup ──────────────────────────────────────────
+  useEffect(() => {
+    async function loadFromDB() {
+      try {
+        const latest = await getLatestKPI();
+        if (latest) {
+          setKpis({
+            inventoryDays: String(latest.inventory_days || "64.2"),
+            turnover:      String(latest.turnover       || "5.68"),
+            holdingCost:   String(latest.holding_cost   || "18.76"),
+            bounceRate:    String(latest.bounce_rate     || "6.42"),
+            stockValue:    String(latest.stock_value     || "2.35"),
+          });
+          setLastUpdated(new Date(latest.uploaded_at));
+        }
+        const history = await getLast6Months();
+        if (history && history.length > 0) {
+          const trend = history.map(h => ({
+            m: h.month,
+            d: parseFloat(h.inventory_days || 0),
+            t: parseFloat(h.turnover       || 0),
+            h: parseFloat(h.holding_cost   || 0),
+            b: parseFloat(h.bounce_rate    || 0),
+          }));
+          setTrendData(trend);
+        }
+      } catch (err) {
+        console.log("No saved data yet — using defaults");
+      }
+    }
+    loadFromDB();
+  }, []);
     const file = e.target.files[0];
     if (!file) return;
     setProcessing(true);
@@ -177,14 +209,14 @@ export default function App() {
     try {
       const data = await readExcelFile(file);
       if (uploadType === "purchase") {
-        const { holdingCost, nearExpiry } = calculateHoldingCost(data);
-        setKpis(prev => ({ ...prev, holdingCost }));
+        const { holdingCost, nearExpiry, stockValueMRP } = calculateHoldingCost(data);
+        setKpis(prev => ({ ...prev, holdingCost, stockValue: stockValueMRP }));
         setAlerts(prev => {
           const updated = [...prev];
           updated[1] = { ...updated[1], n: nearExpiry, desc: `${nearExpiry} items will expire in next 60 days` };
           return updated;
         });
-        setSuccessMsg(`✅ Purchase file processed! Holding Cost: ₹${holdingCost}L | Near Expiry: ${nearExpiry} items`);
+        setSuccessMsg(`✅ Purchase file processed! Holding Cost: ₹${holdingCost}L | Stock Value: ₹${stockValueMRP}Cr | Near Expiry: ${nearExpiry} items`);
       } else if (uploadType === "consumption") {
         const { inventoryDays, turnover } = calculateConsumptionKPIs(data);
         const items = getTopItems(data);
@@ -218,6 +250,36 @@ export default function App() {
         setSuccessMsg(`✅ Bounce file processed! ${latestMonth}: ${latestCount} bounces → Rate: ${bounceRate}% | 6 months total: ${totalBounced} | Stock Out: ${stockOut} | Already Has: ${alreadyHas}`);
       }
       setLastUpdated(new Date());
+
+      // ── Save to Supabase ──────────────────────────────────────────────────
+      try {
+        const now = new Date();
+        const monthName = now.toLocaleString('en-IN', { month: 'short' });
+        const currentKpis = await getLatestKPI();
+        await saveKPISnapshot({
+          month:             monthName,
+          year:              now.getFullYear(),
+          inventory_days:    uploadType === "consumption" ? parseFloat(kpis.inventoryDays) : (currentKpis?.inventory_days || null),
+          turnover:          uploadType === "consumption" ? parseFloat(kpis.turnover)       : (currentKpis?.turnover       || null),
+          holding_cost:      uploadType === "purchase"    ? parseFloat(kpis.holdingCost)   : (currentKpis?.holding_cost   || null),
+          bounce_rate:       uploadType === "bounce"      ? parseFloat(kpis.bounceRate)     : (currentKpis?.bounce_rate    || null),
+          stock_value:       uploadType === "purchase"    ? parseFloat(kpis.stockValue)     : (currentKpis?.stock_value    || null),
+          uploaded_at:       now.toISOString(),
+        });
+        // Refresh trend data
+        const history = await getLast6Months();
+        if (history && history.length > 0) {
+          setTrendData(history.map(h => ({
+            m: h.month,
+            d: parseFloat(h.inventory_days || 0),
+            t: parseFloat(h.turnover       || 0),
+            h: parseFloat(h.holding_cost   || 0),
+            b: parseFloat(h.bounce_rate    || 0),
+          })));
+        }
+      } catch (dbErr) {
+        console.error("DB save error:", dbErr);
+      }
     } catch (err) {
       setSuccessMsg("❌ Error reading file. Please check the file format.");
     }
