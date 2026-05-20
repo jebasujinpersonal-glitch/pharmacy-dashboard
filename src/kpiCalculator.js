@@ -1,3 +1,5 @@
+// KPI Calculator v3 - Fixed formulas for Manipal Hospital Hebbal
+// Columns: Location | Item Code | Item Desc | Qty | Return Qty | MRP | QOH | Category
 import * as XLSX from 'xlsx';
 
 export function readExcelFile(file) {
