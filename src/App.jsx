@@ -1,9 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from "recharts";
+import {
+  readExcelFile, calculateHoldingCost, calculateConsumptionKPIs,
+  calculateBounceRate, getTopItems, getBounceAlerts
+} from "./kpiCalculator";
 
 const C = {
   primary: "#2B3A8F", bg: "#F0F2F8", white: "#FFFFFF",
@@ -12,7 +16,7 @@ const C = {
   blue: "#2563EB", purple: "#7C3AED",
 };
 
-const trendData = [
+const DEFAULT_TREND = [
   { m: "Dec", d: 68, t: 14, h: 26, b: 14 },
   { m: "Jan", d: 67, t: 18, h: 36, b: 14 },
   { m: "Feb", d: 66, t: 20, h: 44, b: 13 },
@@ -21,9 +25,24 @@ const trendData = [
   { m: "May", d: 64, t: 20, h: 78, b: 11 },
 ];
 
-const bounceData = [
+const DEFAULT_BOUNCE = [
   { m: "Dec", r: 8.2 }, { m: "Jan", r: 9.1 }, { m: "Feb", r: 7.8 },
   { m: "Mar", r: 6.9 }, { m: "Apr", r: 8.2 }, { m: "May", r: 6.4 },
+];
+
+const DEFAULT_ITEMS = [
+  { name: "Paracetamol 650mg",  c: "12,450", t: "12.45", up: true  },
+  { name: "Amoxicillin 500mg",  c: "9,875",  t: "9.32",  up: true  },
+  { name: "Pantoprazole 40mg",  c: "8,765",  t: "8.91",  up: false },
+  { name: "Metformin 500mg",    c: "7,654",  t: "7.85",  up: true  },
+  { name: "Atorvastatin 10mg",  c: "6,543",  t: "6.78",  up: true  },
+];
+
+const DEFAULT_ALERTS = [
+  { e: "⚠️", label: "Low Stock Items",   desc: "23 items below minimum stock",  n: 23, color: "#D97706", bg: "#FEF3C7" },
+  { e: "🕐", label: "Near Expiry Items", desc: "18 items expire in 60 days",     n: 18, color: "#EA580C", bg: "#FFF7ED" },
+  { e: "📦", label: "Overstock Items",   desc: "15 items are overstocked",        n: 15, color: "#2563EB", bg: "#DBEAFE" },
+  { e: "🔴", label: "High Bounce Items", desc: "7 items bounce rate >15%",        n:  7, color: "#DC2626", bg: "#FEE2E2" },
 ];
 
 const categoryData = [
@@ -32,21 +51,6 @@ const categoryData = [
   { name: "Consumables",    v: 10.6, amt: "₹0.25 Cr", color: "#D97706" },
   { name: "IV Fluids",      v: 5.1,  amt: "₹0.12 Cr", color: "#7C3AED" },
   { name: "Others",         v: 3.4,  amt: "₹0.08 Cr", color: "#DC2626" },
-];
-
-const items = [
-  { name: "Paracetamol 650mg",  c: "12,450", t: "12.45", up: true  },
-  { name: "Amoxicillin 500mg",  c: "9,875",  t: "9.32",  up: true  },
-  { name: "Pantoprazole 40mg",  c: "8,765",  t: "8.91",  up: false },
-  { name: "Metformin 500mg",    c: "7,654",  t: "7.85",  up: true  },
-  { name: "Atorvastatin 10mg",  c: "6,543",  t: "6.78",  up: true  },
-];
-
-const alerts = [
-  { e: "⚠️", label: "Low Stock Items",   desc: "23 items below minimum stock",  n: 23, color: "#D97706", bg: "#FEF3C7" },
-  { e: "🕐", label: "Near Expiry Items", desc: "18 items expire in 60 days",     n: 18, color: "#EA580C", bg: "#FFF7ED" },
-  { e: "📦", label: "Overstock Items",   desc: "15 items are overstocked",        n: 15, color: "#2563EB", bg: "#DBEAFE" },
-  { e: "🔴", label: "High Bounce Items", desc: "7 items bounce rate >15%",        n:  7, color: "#DC2626", bg: "#FEE2E2" },
 ];
 
 const navItems = [
@@ -69,6 +73,13 @@ const mobileNav = [
   { icon: "▤", label: "Reports" },
 ];
 
+function statusColor(val, target, lowerIsBetter) {
+  const ratio = lowerIsBetter ? target / val : val / target;
+  if (ratio >= 0.95) return C.green;
+  if (ratio >= 0.75) return C.orange;
+  return C.red;
+}
+
 function Spark({ data, color }) {
   const d = data.map((v, i) => ({ i, v }));
   return (
@@ -80,13 +91,13 @@ function Spark({ data, color }) {
   );
 }
 
-function KPICard({ icon, bg, label, value, unit, change, pos, spark, sparkColor, minW }) {
+function KPICard({ icon, bg, label, value, unit, change, pos, spark, sparkColor, status }) {
+  const borderColor = status === "green" ? "#16A34A" : status === "red" ? "#DC2626" : status === "orange" ? "#D97706" : C.border;
   return (
     <div style={{
       background: C.white, borderRadius: 12, padding: "16px",
-      border: `1px solid ${C.border}`, flex: "1 1 170px",
-      boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-      minWidth: minW || "170px", maxWidth: "100%",
+      border: `1.5px solid ${borderColor}`,
+      boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 0,
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{icon}</div>
@@ -121,6 +132,25 @@ export default function App() {
   const [upload, setUpload] = useState(false);
   const [time, setTime] = useState(new Date());
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [processing, setProcessing] = useState(false);
+  const [uploadType, setUploadType] = useState("consumption");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  // Real KPI state
+  const [kpis, setKpis] = useState({
+    inventoryDays: "64.2",
+    turnover: "5.68",
+    holdingCost: "18.76",
+    bounceRate: "6.42",
+    stockValue: "2.35",
+  });
+  const [topItems, setTopItems] = useState(DEFAULT_ITEMS);
+  const [alerts, setAlerts] = useState(DEFAULT_ALERTS);
+  const [trendData, setTrendData] = useState(DEFAULT_TREND);
+  const [bounceBarData, setBounceBarData] = useState(DEFAULT_BOUNCE);
+
+  const fileRef = useRef();
 
   useEffect(() => {
     const t = setInterval(() => setTime(new Date()), 1000);
@@ -139,17 +169,72 @@ export default function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  async function handleFileUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setProcessing(true);
+    setSuccessMsg("");
+    try {
+      const data = await readExcelFile(file);
+      if (uploadType === "purchase") {
+        const holdingCost = calculateHoldingCost(data);
+        setKpis(prev => ({ ...prev, holdingCost }));
+        setSuccessMsg(`✅ Purchase file processed! Holding Cost updated to ₹${holdingCost}L`);
+      } else if (uploadType === "consumption") {
+        const { inventoryDays, turnover } = calculateConsumptionKPIs(data);
+        const items = getTopItems(data);
+        setKpis(prev => ({ ...prev, inventoryDays, turnover }));
+        if (items.length > 0) setTopItems(items);
+        setSuccessMsg(`✅ Consumption file processed! Inventory Days: ${inventoryDays}, Turnover: ${turnover}x`);
+        // Update trend with new real value
+        setTrendData(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = {
+            ...updated[updated.length - 1],
+            d: parseFloat(inventoryDays),
+            t: parseFloat(turnover),
+          };
+          return updated;
+        });
+      } else if (uploadType === "bounce") {
+        const bounceRate = calculateBounceRate(data, 0);
+        const bounceAlerts = getBounceAlerts(data);
+        setKpis(prev => ({ ...prev, bounceRate }));
+        if (bounceAlerts.length > 0) {
+          setAlerts(prev => {
+            const updated = [...prev];
+            updated[3] = { ...updated[3], n: bounceAlerts.length, desc: `${bounceAlerts.length} items with high bounce` };
+            return updated;
+          });
+        }
+        setSuccessMsg(`✅ Bounce file processed! Bounce Rate: ${bounceRate}%`);
+        setBounceBarData(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { ...updated[updated.length - 1], r: parseFloat(bounceRate) };
+          return updated;
+        });
+      }
+      setLastUpdated(new Date());
+    } catch (err) {
+      setSuccessMsg("❌ Error reading file. Please check the file format.");
+    }
+    setProcessing(false);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  const invDaysStatus = parseFloat(kpis.inventoryDays) <= 30 ? "green" : parseFloat(kpis.inventoryDays) <= 45 ? "orange" : "red";
+  const turnoverStatus = parseFloat(kpis.turnover) >= 10 ? "green" : parseFloat(kpis.turnover) >= 8 ? "orange" : "red";
+  const holdingStatus = parseFloat(kpis.holdingCost) <= 15 ? "green" : parseFloat(kpis.holdingCost) <= 20 ? "orange" : "red";
+  const bounceStatus = parseFloat(kpis.bounceRate) <= 5 ? "green" : parseFloat(kpis.bounceRate) <= 10 ? "orange" : "red";
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", position: "relative" }}>
 
-      {/* ── SIDEBAR OVERLAY (mobile) ── */}
       {isMobile && sidebar && (
-        <div onClick={() => setSidebar(false)} style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 40
-        }} />
+        <div onClick={() => setSidebar(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 40 }} />
       )}
 
-      {/* ── SIDEBAR ── */}
+      {/* SIDEBAR */}
       <div style={{
         width: 220, background: C.primary, display: "flex", flexDirection: "column",
         flexShrink: 0, boxShadow: "2px 0 12px rgba(0,0,0,0.15)",
@@ -162,7 +247,7 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 9, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🏥</div>
             <div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>Hospital Pharmacy</div>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>Hospital Pharmacy</div>
               <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>KPI Dashboard</div>
             </div>
           </div>
@@ -192,21 +277,21 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ADE80" }} />
             <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10 }}>
-              Live · {time.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+              {lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}` : `Live · ${time.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`}
             </span>
           </div>
         </div>
       </div>
 
-      {/* ── MAIN ── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: isMobile ? 0 : 0 }}>
+      {/* MAIN */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
-        {/* ── TOPBAR ── */}
+        {/* TOPBAR */}
         <div style={{
           background: C.white, borderBottom: `1px solid ${C.border}`,
           padding: "0 16px", height: 56, display: "flex", alignItems: "center",
-          justifyContent: "space-between", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-          position: "sticky", top: 0, zIndex: 30,
+          justifyContent: "space-between", flexShrink: 0,
+          boxShadow: "0 1px 4px rgba(0,0,0,0.05)", position: "sticky", top: 0, zIndex: 30,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
             <button onClick={() => setSidebar(s => !s)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: C.muted, padding: 4, flexShrink: 0 }}>☰</button>
@@ -218,9 +303,7 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexShrink: 0 }}>
             {!isMobile && (
               <>
-                <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "5px 10px", fontSize: 11, color: C.text, background: "#fafbff", whiteSpace: "nowrap" }}>
-                  📅 01–31 May 2025
-                </div>
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "5px 10px", fontSize: 11, color: C.text, background: "#fafbff", whiteSpace: "nowrap" }}>📅 01–31 May 2025</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: C.green, whiteSpace: "nowrap" }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green }} />Auto refresh: On
                 </div>
@@ -247,32 +330,54 @@ export default function App() {
           </div>
         </div>
 
-        {/* ── UPLOAD BANNER ── */}
+        {/* UPLOAD PANEL */}
         {upload && (
-          <div style={{ background: "#EFF6FF", borderBottom: `1px solid #BFDBFE`, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, color: C.blue, fontWeight: 600 }}>📂 Upload Today's Inventory CSV / Excel</span>
-            <input type="file" accept=".csv,.xlsx" style={{ fontSize: 11, flex: 1, minWidth: 0 }} />
-            <button onClick={() => setUpload(false)} style={{ background: C.blue, color: "#fff", border: "none", borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>Process</button>
-            <button onClick={() => setUpload(false)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>✕</button>
+          <div style={{ background: "#EFF6FF", borderBottom: `1px solid #BFDBFE`, padding: "12px 16px", flexShrink: 0 }}>
+            <div style={{ fontSize: 13, color: C.blue, fontWeight: 700, marginBottom: 10 }}>📂 Upload Today's Data File</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <select value={uploadType} onChange={e => setUploadType(e.target.value)} style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "6px 12px", fontSize: 12, color: C.text, background: "#fff" }}>
+                <option value="consumption">Consumption File (for Inventory Days & Turnover)</option>
+                <option value="purchase">Purchase File (for Holding Cost)</option>
+                <option value="bounce">Bounce Prescription File (for Bounce Rate)</option>
+              </select>
+              <input ref={fileRef} type="file" accept=".xlsx,.csv" onChange={handleFileUpload} style={{ fontSize: 12 }} />
+              {processing && <span style={{ fontSize: 12, color: C.blue, fontWeight: 600 }}>⏳ Processing...</span>}
+              <button onClick={() => { setUpload(false); setSuccessMsg(""); }} style={{ marginLeft: "auto", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>✕</button>
+            </div>
+            {successMsg && (
+              <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: successMsg.startsWith("✅") ? "#DCFCE7" : "#FEE2E2", fontSize: 12, color: successMsg.startsWith("✅") ? C.green : C.red, fontWeight: 600 }}>
+                {successMsg}
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── BODY ── */}
+        {/* BODY */}
         <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "12px" : "20px", display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16, paddingBottom: isMobile ? 70 : 20 }}>
 
-          {/* ── KPI CARDS ── */}
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <KPICard icon="📅" bg="#EEF2FF" label="Inventory Days"     value="64.2" unit="Days" change="5.3"  pos={false} spark={[68,67,66,67,69,64]} sparkColor={C.blue}   minW={isMobile?"45%":"170px"} />
-            <KPICard icon="📈" bg="#ECFDF5" label="Inventory Turnover" value="5.68" unit=""     change="0.45" pos={true}  spark={[14,18,20,22,21,20]} sparkColor={C.green}   minW={isMobile?"45%":"170px"} />
-            <KPICard icon="💰" bg="#FFFBEB" label="Holding Cost"       value="₹18.76" unit="L" change="8.2%" pos={false} spark={[26,36,44,52,65,78]} sparkColor={C.orange}  minW={isMobile?"45%":"170px"} />
-            <KPICard icon="🔴" bg="#FFF1F2" label="Bounce Rate"        value="6.42" unit="%"   change="1.8%" pos={true}  spark={[14,14,13,13,12,11]} sparkColor={C.red}     minW={isMobile?"45%":"170px"} />
-            <KPICard icon="📊" bg="#F5F3FF" label="Stock Value"        value="₹2.35" unit="Cr" change="6.7%" pos={true}  spark={[2.1,2.15,2.2,2.25,2.3,2.35]} sparkColor={C.purple} minW={isMobile?"45%":"170px"} />
-          </div>
+          {/* KPI CARDS */}
+          {isMobile ? (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <KPICard icon="📅" bg="#EEF2FF" label="Inventory Days"    value={kpis.inventoryDays} unit="Days" change="5.3"  pos={false} spark={[68,67,66,67,69,parseFloat(kpis.inventoryDays)]} sparkColor={C.blue}   status={invDaysStatus} />
+              <KPICard icon="📈" bg="#ECFDF5" label="Inv. Turnover"     value={kpis.turnover}      unit="x"    change="0.45" pos={true}  spark={[14,18,20,22,21,parseFloat(kpis.turnover)]}        sparkColor={C.green}  status={turnoverStatus} />
+              <KPICard icon="💰" bg="#FFFBEB" label="Holding Cost"      value={`₹${kpis.holdingCost}`} unit="L" change="8.2%" pos={false} spark={[26,36,44,52,65,parseFloat(kpis.holdingCost)]} sparkColor={C.orange} status={holdingStatus} />
+              <KPICard icon="🔴" bg="#FFF1F2" label="Bounce Rate"       value={kpis.bounceRate}    unit="%"    change="1.8%" pos={true}  spark={[14,14,13,13,12,parseFloat(kpis.bounceRate)]}       sparkColor={C.red}    status={bounceStatus} />
+              <div style={{ gridColumn: "1 / -1" }}>
+                <KPICard icon="📊" bg="#F5F3FF" label="Stock Value"     value={`₹${kpis.stockValue}`} unit="Cr" change="6.7%" pos={true} spark={[2.1,2.15,2.2,2.25,2.3,parseFloat(kpis.stockValue)]} sparkColor={C.purple} status="green" />
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+              <KPICard icon="📅" bg="#EEF2FF" label="Inventory Days"    value={kpis.inventoryDays} unit="Days" change="5.3"  pos={false} spark={[68,67,66,67,69,parseFloat(kpis.inventoryDays)]} sparkColor={C.blue}   status={invDaysStatus} />
+              <KPICard icon="📈" bg="#ECFDF5" label="Inventory Turnover" value={kpis.turnover}     unit="x"    change="0.45" pos={true}  spark={[14,18,20,22,21,parseFloat(kpis.turnover)]}        sparkColor={C.green}  status={turnoverStatus} />
+              <KPICard icon="💰" bg="#FFFBEB" label="Holding Cost"      value={`₹${kpis.holdingCost}`} unit="L" change="8.2%" pos={false} spark={[26,36,44,52,65,parseFloat(kpis.holdingCost)]} sparkColor={C.orange} status={holdingStatus} />
+              <KPICard icon="🔴" bg="#FFF1F2" label="Bounce Rate"       value={kpis.bounceRate}    unit="%"    change="1.8%" pos={true}  spark={[14,14,13,13,12,parseFloat(kpis.bounceRate)]}       sparkColor={C.red}    status={bounceStatus} />
+              <KPICard icon="📊" bg="#F5F3FF" label="Stock Value"       value={`₹${kpis.stockValue}`} unit="Cr" change="6.7%" pos={true} spark={[2.1,2.15,2.2,2.25,2.3,parseFloat(kpis.stockValue)]} sparkColor={C.purple} status="green" />
+            </div>
+          )}
 
-          {/* ── TREND + DONUT ── */}
+          {/* TREND + DONUT */}
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-
-            {/* KPI TREND */}
             <div style={{ flex: "1 1 320px", background: C.white, borderRadius: 12, padding: "18px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>KPI Trend Overview</span>
@@ -301,7 +406,6 @@ export default function App() {
               </ResponsiveContainer>
             </div>
 
-            {/* DONUT */}
             <div style={{ flex: "1 1 260px", background: C.white, borderRadius: 12, padding: "18px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 14 }}>Inventory Value by Category</div>
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -336,10 +440,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* ── BOTTOM ROW ── */}
+          {/* BOTTOM ROW */}
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-
-            {/* TABLE */}
             <div style={{ flex: "1 1 280px", background: C.white, borderRadius: 12, padding: "18px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Top 5 Fast Moving Items</span>
@@ -355,11 +457,11 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody>
-                    {items.map((row, i) => (
+                    {topItems.map((row, i) => (
                       <tr key={i} style={{ borderBottom: `1px solid ${C.border}` }}>
-                        <td style={{ padding: "8px", color: C.text, fontWeight: 500, whiteSpace: "nowrap" }}>{row.name}</td>
-                        <td style={{ padding: "8px", color: C.text, whiteSpace: "nowrap" }}>{row.c}</td>
-                        <td style={{ padding: "8px", color: C.text, fontWeight: 600, whiteSpace: "nowrap" }}>{row.t}</td>
+                        <td style={{ padding: "8px", color: C.text, fontWeight: 500 }}>{row.name || row.c}</td>
+                        <td style={{ padding: "8px", color: C.text, whiteSpace: "nowrap" }}>{row.c || row.consumption}</td>
+                        <td style={{ padding: "8px", color: C.text, fontWeight: 600, whiteSpace: "nowrap" }}>{row.t || row.turnover}</td>
                         <td style={{ padding: "8px" }}>
                           <Spark data={row.up ? [3, 4, 5, 5, 6, 7] : [6, 5, 5, 4, 4, 5]} color={row.up ? C.green : C.red} />
                         </td>
@@ -370,7 +472,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* ALERTS */}
             <div style={{ flex: "1 1 220px", background: C.white, borderRadius: 12, padding: "18px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Alerts Summary</span>
@@ -381,7 +482,7 @@ export default function App() {
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 9, background: a.bg, border: `1px solid ${a.color}22`, cursor: "pointer" }}>
                     <span style={{ fontSize: 16, flexShrink: 0 }}>{a.e}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.label}</div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{a.label}</div>
                       <div style={{ fontSize: 10, color: C.muted }}>{a.desc}</div>
                     </div>
                     <span style={{ fontSize: 15, fontWeight: 800, color: a.color, flexShrink: 0 }}>{a.n}</span>
@@ -391,25 +492,24 @@ export default function App() {
               </div>
             </div>
 
-            {/* BOUNCE BAR */}
             <div style={{ flex: "1 1 220px", background: C.white, borderRadius: 12, padding: "18px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 0 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Bounce Rate Trend</span>
                 <button style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 8px", fontSize: 11, color: C.muted, cursor: "pointer" }}>View All</button>
               </div>
               <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={bounceData} margin={{ top: 4, right: 0, left: -22, bottom: 0 }}>
+                <BarChart data={bounceBarData} margin={{ top: 4, right: 0, left: -22, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
                   <XAxis dataKey="m" tick={{ fontSize: 10, fill: C.muted }} />
                   <YAxis tick={{ fontSize: 10, fill: C.muted }} tickFormatter={v => `${v}%`} />
                   <Tooltip formatter={v => [`${v}%`, "Bounce Rate"]} />
                   <Bar dataKey="r" radius={[4, 4, 0, 0]}>
-                    {bounceData.map((d, i) => <Cell key={i} fill={d.r > 8 ? "#EF4444" : "#F87171"} />)}
+                    {bounceBarData.map((d, i) => <Cell key={i} fill={d.r > 8 ? "#EF4444" : "#F87171"} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
               <div style={{ display: "flex", justifyContent: "space-around", fontSize: 10, marginTop: 4 }}>
-                {bounceData.map((d, i) => (
+                {bounceBarData.map((d, i) => (
                   <span key={i} style={{ color: d.r > 8 ? C.red : C.green, fontWeight: 700 }}>{d.r}%</span>
                 ))}
               </div>
@@ -420,14 +520,14 @@ export default function App() {
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: C.muted, paddingTop: 4, flexWrap: "wrap", gap: 8 }}>
             <span>© 2025 City Care Hospital · Pharmacy Department</span>
             <div style={{ display: "flex", gap: 14 }}>
-              <span>Dashboard v1.0.0</span>
+              <span>Dashboard v2.0.0</span>
               <span style={{ cursor: "pointer", textDecoration: "underline" }}>Privacy Policy</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── MOBILE BOTTOM NAV ── */}
+      {/* MOBILE BOTTOM NAV */}
       {isMobile && (
         <div style={{
           position: "fixed", bottom: 0, left: 0, right: 0, height: 60,
