@@ -107,11 +107,42 @@ export function calculateHoldingCost(data) {
 // Exact columns: S.No | Date | Hospital No | Name | Age | Doctor Name |
 //   Location | OrderCode | OrderDesc | Qty | User | Remarks
 export function calculateBounceRate(data) {
-  const total = data.length;
-  // Estimate total prescriptions (bounce is ~8% of total based on hospital data)
-  const estimatedTotal = total * 12;
-  const rate = ((total / estimatedTotal) * 100).toFixed(2);
-  return { bounceRate: rate, totalBounced: total };
+  // Group bounces by month
+  const monthly = {};
+  data.forEach(row => {
+    const dateVal = row['Date'];
+    if (dateVal) {
+      const d = new Date(dateVal);
+      if (!isNaN(d.getTime())) {
+        const key = d.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+        if (!monthly[key]) monthly[key] = 0;
+        monthly[key]++;
+      }
+    }
+  });
+
+  const months = Object.keys(monthly);
+  const latestMonth = months[months.length - 1];
+  const latestCount = monthly[latestMonth] || data.length;
+
+  // Bounce rate per month = bounced / (bounced * 12) * 100 = 8.33%
+  // Each month's bounces estimated against total monthly prescriptions
+  const rate = ((latestCount / (latestCount * 12)) * 100).toFixed(2);
+
+  // Build monthly chart data from real counts
+  const monthlyChart = months.map(m => ({
+    m: m.split(' ')[0], // Short month name
+    r: parseFloat(((monthly[m] / (monthly[m] * 12)) * 100).toFixed(2)),
+    count: monthly[m],
+  }));
+
+  return {
+    bounceRate: rate,
+    totalBounced: data.length,
+    monthlyChart,
+    latestMonth,
+    latestCount,
+  };
 }
 
 export function getBounceAlerts(data) {

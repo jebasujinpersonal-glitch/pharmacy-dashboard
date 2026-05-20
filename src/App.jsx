@@ -91,7 +91,7 @@ function Spark({ data, color }) {
   );
 }
 
-function KPICard({ icon, bg, label, value, unit, change, pos, spark, sparkColor, status }) {
+function KPICard({ icon, bg, label, value, unit, change, pos, spark, sparkColor, status, vsMonth }) {
   const borderColor = status === "green" ? "#16A34A" : status === "red" ? "#DC2626" : status === "orange" ? "#D97706" : C.border;
   return (
     <div style={{
@@ -108,7 +108,7 @@ function KPICard({ icon, bg, label, value, unit, change, pos, spark, sparkColor,
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 11, color: pos ? C.green : C.red, fontWeight: 600 }}>
-          {pos ? "↑" : "↓"} {change} <span style={{ color: C.muted, fontWeight: 400 }}>vs Apr</span>
+          {pos ? "↑" : "↓"} {change} <span style={{ color: C.muted, fontWeight: 400 }}>vs {vsMonth}</span>
         </span>
         <Spark data={spark} color={sparkColor} />
       </div>
@@ -202,7 +202,7 @@ export default function App() {
           return updated;
         });
       } else if (uploadType === "bounce") {
-        const { bounceRate, totalBounced } = calculateBounceRate(data);
+        const { bounceRate, totalBounced, monthlyChart, latestMonth, latestCount } = calculateBounceRate(data);
         const bounceAlerts = getBounceAlerts(data);
         const { stockOut, alreadyHas } = getBounceReasons(data);
         setKpis(prev => ({ ...prev, bounceRate }));
@@ -211,12 +211,11 @@ export default function App() {
           updated[3] = { ...updated[3], n: bounceAlerts.length, desc: `${bounceAlerts.length} drugs with high bounce` };
           return updated;
         });
-        setSuccessMsg(`✅ Bounce file processed! Rate: ${bounceRate}% | Total: ${totalBounced} | Stock Out: ${stockOut} | Already Has: ${alreadyHas}`);
-        setBounceBarData(prev => {
-          const updated = [...prev];
-          updated[updated.length - 1] = { ...updated[updated.length - 1], r: parseFloat(bounceRate) };
-          return updated;
-        });
+        // Update bounce bar chart with REAL monthly data
+        if (monthlyChart && monthlyChart.length > 0) {
+          setBounceBarData(monthlyChart);
+        }
+        setSuccessMsg(`✅ Bounce file processed! ${latestMonth}: ${latestCount} bounces → Rate: ${bounceRate}% | 6 months total: ${totalBounced} | Stock Out: ${stockOut} | Already Has: ${alreadyHas}`);
       }
       setLastUpdated(new Date());
     } catch (err) {
@@ -225,6 +224,12 @@ export default function App() {
     setProcessing(false);
     if (fileRef.current) fileRef.current.value = "";
   }
+
+  const currentMonth = time.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+  const currentMonthShort = time.toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+  const firstDay = `01 ${time.toLocaleString('en-IN', { month: 'short', year: 'numeric' })}`;
+  const lastDay = `${new Date(time.getFullYear(), time.getMonth() + 1, 0).getDate()} ${time.toLocaleString('en-IN', { month: 'short', year: 'numeric' })}`;
+  const prevMonth = new Date(time.getFullYear(), time.getMonth() - 1, 1).toLocaleString('en-IN', { month: 'short', year: 'numeric' });
 
   const invDaysStatus = parseFloat(kpis.inventoryDays) <= 30 ? "green" : parseFloat(kpis.inventoryDays) <= 45 ? "orange" : "red";
   const turnoverStatus = parseFloat(kpis.turnover) >= 10 ? "green" : parseFloat(kpis.turnover) >= 8 ? "orange" : "red";
@@ -307,7 +312,7 @@ export default function App() {
           <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexShrink: 0 }}>
             {!isMobile && (
               <>
-                <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "5px 10px", fontSize: 11, color: C.text, background: "#fafbff", whiteSpace: "nowrap" }}>📅 01–31 May 2025</div>
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "5px 10px", fontSize: 11, color: C.text, background: "#fafbff", whiteSpace: "nowrap" }}>📅 {firstDay} – {lastDay}</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: C.green, whiteSpace: "nowrap" }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green }} />Auto refresh: On
                 </div>
@@ -362,21 +367,21 @@ export default function App() {
           {/* KPI CARDS */}
           {isMobile ? (
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <KPICard icon="📅" bg="#EEF2FF" label="Inventory Days"    value={kpis.inventoryDays} unit="Days" change="5.3"  pos={false} spark={[68,67,66,67,69,parseFloat(kpis.inventoryDays)]} sparkColor={C.blue}   status={invDaysStatus} />
-              <KPICard icon="📈" bg="#ECFDF5" label="Inv. Turnover"     value={kpis.turnover}      unit="x"    change="0.45" pos={true}  spark={[14,18,20,22,21,parseFloat(kpis.turnover)]}        sparkColor={C.green}  status={turnoverStatus} />
-              <KPICard icon="💰" bg="#FFFBEB" label="Holding Cost"      value={`₹${kpis.holdingCost}`} unit="L" change="8.2%" pos={false} spark={[26,36,44,52,65,parseFloat(kpis.holdingCost)]} sparkColor={C.orange} status={holdingStatus} />
-              <KPICard icon="🔴" bg="#FFF1F2" label="Bounce Rate"       value={kpis.bounceRate}    unit="%"    change="1.8%" pos={true}  spark={[14,14,13,13,12,parseFloat(kpis.bounceRate)]}       sparkColor={C.red}    status={bounceStatus} />
+              <KPICard icon="📅" bg="#EEF2FF" label="Inventory Days"    value={kpis.inventoryDays} unit="Days" change="5.3"  pos={false} spark={[68,67,66,67,69,parseFloat(kpis.inventoryDays)]} sparkColor={C.blue}   status={invDaysStatus}  vsMonth={prevMonth} />
+              <KPICard icon="📈" bg="#ECFDF5" label="Inv. Turnover"     value={kpis.turnover}      unit="x"    change="0.45" pos={true}  spark={[14,18,20,22,21,parseFloat(kpis.turnover)]}        sparkColor={C.green}  status={turnoverStatus} vsMonth={prevMonth} />
+              <KPICard icon="💰" bg="#FFFBEB" label="Holding Cost"      value={`₹${kpis.holdingCost}`} unit="L" change="8.2%" pos={false} spark={[26,36,44,52,65,parseFloat(kpis.holdingCost)]} sparkColor={C.orange} status={holdingStatus}  vsMonth={prevMonth} />
+              <KPICard icon="🔴" bg="#FFF1F2" label="Bounce Rate"       value={kpis.bounceRate}    unit="%"    change="1.8%" pos={true}  spark={[14,14,13,13,12,parseFloat(kpis.bounceRate)]}       sparkColor={C.red}    status={bounceStatus}   vsMonth={prevMonth} />
               <div style={{ gridColumn: "1 / -1" }}>
-                <KPICard icon="📊" bg="#F5F3FF" label="Stock Value"     value={`₹${kpis.stockValue}`} unit="Cr" change="6.7%" pos={true} spark={[2.1,2.15,2.2,2.25,2.3,parseFloat(kpis.stockValue)]} sparkColor={C.purple} status="green" />
+                <KPICard icon="📊" bg="#F5F3FF" label="Stock Value"     value={`₹${kpis.stockValue}`} unit="Cr" change="6.7%" pos={true} spark={[2.1,2.15,2.2,2.25,2.3,parseFloat(kpis.stockValue)]} sparkColor={C.purple} status="green" vsMonth={prevMonth} />
               </div>
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
-              <KPICard icon="📅" bg="#EEF2FF" label="Inventory Days"    value={kpis.inventoryDays} unit="Days" change="5.3"  pos={false} spark={[68,67,66,67,69,parseFloat(kpis.inventoryDays)]} sparkColor={C.blue}   status={invDaysStatus} />
-              <KPICard icon="📈" bg="#ECFDF5" label="Inventory Turnover" value={kpis.turnover}     unit="x"    change="0.45" pos={true}  spark={[14,18,20,22,21,parseFloat(kpis.turnover)]}        sparkColor={C.green}  status={turnoverStatus} />
-              <KPICard icon="💰" bg="#FFFBEB" label="Holding Cost"      value={`₹${kpis.holdingCost}`} unit="L" change="8.2%" pos={false} spark={[26,36,44,52,65,parseFloat(kpis.holdingCost)]} sparkColor={C.orange} status={holdingStatus} />
-              <KPICard icon="🔴" bg="#FFF1F2" label="Bounce Rate"       value={kpis.bounceRate}    unit="%"    change="1.8%" pos={true}  spark={[14,14,13,13,12,parseFloat(kpis.bounceRate)]}       sparkColor={C.red}    status={bounceStatus} />
-              <KPICard icon="📊" bg="#F5F3FF" label="Stock Value"       value={`₹${kpis.stockValue}`} unit="Cr" change="6.7%" pos={true} spark={[2.1,2.15,2.2,2.25,2.3,parseFloat(kpis.stockValue)]} sparkColor={C.purple} status="green" />
+              <KPICard icon="📅" bg="#EEF2FF" label="Inventory Days"     value={kpis.inventoryDays} unit="Days" change="5.3"  pos={false} spark={[68,67,66,67,69,parseFloat(kpis.inventoryDays)]} sparkColor={C.blue}   status={invDaysStatus}  vsMonth={prevMonth} />
+              <KPICard icon="📈" bg="#ECFDF5" label="Inventory Turnover" value={kpis.turnover}      unit="x"    change="0.45" pos={true}  spark={[14,18,20,22,21,parseFloat(kpis.turnover)]}        sparkColor={C.green}  status={turnoverStatus} vsMonth={prevMonth} />
+              <KPICard icon="💰" bg="#FFFBEB" label="Holding Cost"       value={`₹${kpis.holdingCost}`} unit="L" change="8.2%" pos={false} spark={[26,36,44,52,65,parseFloat(kpis.holdingCost)]} sparkColor={C.orange} status={holdingStatus}  vsMonth={prevMonth} />
+              <KPICard icon="🔴" bg="#FFF1F2" label="Bounce Rate"        value={kpis.bounceRate}    unit="%"    change="1.8%" pos={true}  spark={[14,14,13,13,12,parseFloat(kpis.bounceRate)]}       sparkColor={C.red}    status={bounceStatus}   vsMonth={prevMonth} />
+              <KPICard icon="📊" bg="#F5F3FF" label="Stock Value"        value={`₹${kpis.stockValue}`} unit="Cr" change="6.7%" pos={true} spark={[2.1,2.15,2.2,2.25,2.3,parseFloat(kpis.stockValue)]} sparkColor={C.purple} status="green" vsMonth={prevMonth} />
             </div>
           )}
 
