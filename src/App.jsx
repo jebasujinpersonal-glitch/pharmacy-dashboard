@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import {
   readExcelFile, calculateHoldingCost, calculateConsumptionKPIs,
-  calculateBounceRate, getTopItems, getBounceAlerts
+  calculateBounceRate, getTopItems, getBounceAlerts, getBounceReasons
 } from "./kpiCalculator";
 
 const C = {
@@ -177,9 +177,14 @@ export default function App() {
     try {
       const data = await readExcelFile(file);
       if (uploadType === "purchase") {
-        const holdingCost = calculateHoldingCost(data);
+        const { holdingCost, nearExpiry } = calculateHoldingCost(data);
         setKpis(prev => ({ ...prev, holdingCost }));
-        setSuccessMsg(`✅ Purchase file processed! Holding Cost updated to ₹${holdingCost}L`);
+        setAlerts(prev => {
+          const updated = [...prev];
+          updated[1] = { ...updated[1], n: nearExpiry, desc: `${nearExpiry} items will expire in next 60 days` };
+          return updated;
+        });
+        setSuccessMsg(`✅ Purchase file processed! Holding Cost: ₹${holdingCost}L | Near Expiry: ${nearExpiry} items`);
       } else if (uploadType === "consumption") {
         const { inventoryDays, turnover } = calculateConsumptionKPIs(data);
         const items = getTopItems(data);
@@ -197,17 +202,16 @@ export default function App() {
           return updated;
         });
       } else if (uploadType === "bounce") {
-        const bounceRate = calculateBounceRate(data, 0);
+        const { bounceRate, totalBounced } = calculateBounceRate(data);
         const bounceAlerts = getBounceAlerts(data);
+        const { stockOut, alreadyHas } = getBounceReasons(data);
         setKpis(prev => ({ ...prev, bounceRate }));
-        if (bounceAlerts.length > 0) {
-          setAlerts(prev => {
-            const updated = [...prev];
-            updated[3] = { ...updated[3], n: bounceAlerts.length, desc: `${bounceAlerts.length} items with high bounce` };
-            return updated;
-          });
-        }
-        setSuccessMsg(`✅ Bounce file processed! Bounce Rate: ${bounceRate}%`);
+        setAlerts(prev => {
+          const updated = [...prev];
+          updated[3] = { ...updated[3], n: bounceAlerts.length, desc: `${bounceAlerts.length} drugs with high bounce` };
+          return updated;
+        });
+        setSuccessMsg(`✅ Bounce file processed! Rate: ${bounceRate}% | Total: ${totalBounced} | Stock Out: ${stockOut} | Already Has: ${alreadyHas}`);
         setBounceBarData(prev => {
           const updated = [...prev];
           updated[updated.length - 1] = { ...updated[updated.length - 1], r: parseFloat(bounceRate) };
