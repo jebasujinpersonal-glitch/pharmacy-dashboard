@@ -78,14 +78,22 @@ export function getTopItems(data) {
 //   Item Code | Item Name | UOM | BatchNo | ExpireDate | QTY | GRN Amt | ...
 export function calculateHoldingCost(data) {
   let total = 0;
+  let stockValueCost = 0;
+  let stockValueMRP = 0;
   let nearExpiry = 0;
   const today = new Date();
   const in60days = new Date();
   in60days.setDate(today.getDate() + 60);
 
   data.forEach(row => {
-    const amt = parseFloat(row['GRN Amt'] || 0);
-    total += amt;
+    const amt       = parseFloat(row['GRN Amt'] || 0);
+    const qty       = parseFloat(row['QTY'] || 0);
+    const unitPrice = parseFloat(row['Unit Price BF Tax'] || 0);
+    const mrp       = parseFloat(row['MRP'] || 0);
+
+    total           += amt;
+    stockValueCost  += qty * unitPrice;
+    stockValueMRP   += qty * mrp;
 
     // Check near expiry
     const exp = row['ExpireDate'];
@@ -98,7 +106,9 @@ export function calculateHoldingCost(data) {
   });
 
   return {
-    holdingCost: (total / 100000).toFixed(2),  // in Lakhs
+    holdingCost:      (total / 100000).toFixed(2),          // in Lakhs
+    stockValueCost:   (stockValueCost / 10000000).toFixed(2), // in Crores at cost
+    stockValueMRP:    (stockValueMRP / 10000000).toFixed(2),  // in Crores at MRP
     nearExpiry,
   };
 }
