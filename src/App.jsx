@@ -1,539 +1,453 @@
 import { useState, useEffect } from "react";
 import {
-  LineChart, Line, AreaChart, Area, BarChart, Bar,
+  LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from "recharts";
 
-const COLORS = {
-  primary: "#2B3A8F",
-  primaryDark: "#1e2d6e",
-  primaryLight: "#e8ecf8",
-  bg: "#F0F2F8",
-  white: "#FFFFFF",
-  border: "#E2E6F0",
-  text: "#1A2340",
-  muted: "#7A869A",
-  green: "#16A34A",
-  greenBg: "#DCFCE7",
-  red: "#DC2626",
-  redBg: "#FEE2E2",
-  orange: "#D97706",
-  orangeBg: "#FEF3C7",
-  blue: "#2563EB",
-  blueBg: "#DBEAFE",
-  purple: "#7C3AED",
-  purpleBg: "#EDE9FE",
-  teal: "#0D9488",
-  tealBg: "#CCFBF1",
+const C = {
+  primary: "#2B3A8F", bg: "#F0F2F8", white: "#FFFFFF",
+  border: "#E2E6F0", text: "#1A2340", muted: "#7A869A",
+  green: "#16A34A", red: "#DC2626", orange: "#D97706",
+  blue: "#2563EB", purple: "#7C3AED",
 };
 
 const trendData = [
-  { month: "Dec 2024", invDays: 68, turnover: 14, holding: 26, bounce: 14 },
-  { month: "Jan 2025", invDays: 67, turnover: 18, holding: 36, bounce: 14 },
-  { month: "Feb 2025", invDays: 66, turnover: 20, holding: 44, bounce: 13 },
-  { month: "Mar 2025", invDays: 67, turnover: 22, holding: 52, bounce: 13 },
-  { month: "Apr 2025", invDays: 69, turnover: 21, holding: 65, bounce: 12 },
-  { month: "May 2025", invDays: 64, turnover: 20, holding: 78, bounce: 11 },
+  { m: "Dec", d: 68, t: 14, h: 26, b: 14 },
+  { m: "Jan", d: 67, t: 18, h: 36, b: 14 },
+  { m: "Feb", d: 66, t: 20, h: 44, b: 13 },
+  { m: "Mar", d: 67, t: 22, h: 52, b: 13 },
+  { m: "Apr", d: 69, t: 21, h: 65, b: 12 },
+  { m: "May", d: 64, t: 20, h: 78, b: 11 },
 ];
 
-const bounceBarData = [
-  { month: "Dec 2024", rate: 8.2 },
-  { month: "Jan 2025", rate: 9.1 },
-  { month: "Feb 2025", rate: 7.8 },
-  { month: "Mar 2025", rate: 6.9 },
-  { month: "Apr 2025", rate: 8.2 },
-  { month: "May 2025", rate: 6.4 },
+const bounceData = [
+  { m: "Dec", r: 8.2 }, { m: "Jan", r: 9.1 }, { m: "Feb", r: 7.8 },
+  { m: "Mar", r: 6.9 }, { m: "Apr", r: 8.2 }, { m: "May", r: 6.4 },
 ];
 
 const categoryData = [
-  { name: "Medicines",      value: 61.7, amount: "₹ 1.45 Cr", color: "#2563EB" },
-  { name: "Surgical Items", value: 19.1, amount: "₹ 0.45 Cr", color: "#16A34A" },
-  { name: "Consumables",    value: 10.6, amount: "₹ 0.25 Cr", color: "#D97706" },
-  { name: "IV Fluids",      value: 5.1,  amount: "₹ 0.12 Cr", color: "#7C3AED" },
-  { name: "Others",         value: 3.4,  amount: "₹ 0.08 Cr", color: "#DC2626" },
+  { name: "Medicines",      v: 61.7, amt: "₹1.45 Cr", color: "#2563EB" },
+  { name: "Surgical Items", v: 19.1, amt: "₹0.45 Cr", color: "#16A34A" },
+  { name: "Consumables",    v: 10.6, amt: "₹0.25 Cr", color: "#D97706" },
+  { name: "IV Fluids",      v: 5.1,  amt: "₹0.12 Cr", color: "#7C3AED" },
+  { name: "Others",         v: 3.4,  amt: "₹0.08 Cr", color: "#DC2626" },
 ];
 
-const fastMoving = [
-  { name: "Paracetamol 650mg",  consumption: "12,450", turnover: "12.45", trend: [3,5,4,7,5,8], up: true },
-  { name: "Amoxicillin 500mg",  consumption: "9,875",  turnover: "9.32",  trend: [4,4,5,5,6,5], up: true },
-  { name: "Pantoprazole 40mg",  consumption: "8,765",  turnover: "8.91",  trend: [5,4,4,5,4,5], up: false },
-  { name: "Metformin 500mg",    consumption: "7,654",  turnover: "7.85",  trend: [3,4,3,4,5,4], up: true },
-  { name: "Atorvastatin 10mg",  consumption: "6,543",  turnover: "6.78",  trend: [3,3,4,3,4,4], up: true },
+const items = [
+  { name: "Paracetamol 650mg",  c: "12,450", t: "12.45", up: true  },
+  { name: "Amoxicillin 500mg",  c: "9,875",  t: "9.32",  up: true  },
+  { name: "Pantoprazole 40mg",  c: "8,765",  t: "8.91",  up: false },
+  { name: "Metformin 500mg",    c: "7,654",  t: "7.85",  up: true  },
+  { name: "Atorvastatin 10mg",  c: "6,543",  t: "6.78",  up: true  },
 ];
 
 const alerts = [
-  { emoji: "⚠️", label: "Low Stock Items",   desc: "23 items are below minimum stock level",  count: 23, color: COLORS.orange, bg: COLORS.orangeBg },
-  { emoji: "🕐", label: "Near Expiry Items", desc: "18 items will expire in next 60 days",     count: 18, color: COLORS.orange, bg: "#FFF7ED" },
-  { emoji: "📦", label: "Overstock Items",   desc: "15 items are overstocked",                 count: 15, color: COLORS.blue,   bg: COLORS.blueBg },
-  { emoji: "🔴", label: "High Bounce Items", desc: "7 items have bounce rate > 15%",           count: 7,  color: COLORS.red,    bg: COLORS.redBg },
+  { e: "⚠️", label: "Low Stock Items",   desc: "23 items below minimum stock",  n: 23, color: "#D97706", bg: "#FEF3C7" },
+  { e: "🕐", label: "Near Expiry Items", desc: "18 items expire in 60 days",     n: 18, color: "#EA580C", bg: "#FFF7ED" },
+  { e: "📦", label: "Overstock Items",   desc: "15 items are overstocked",        n: 15, color: "#2563EB", bg: "#DBEAFE" },
+  { e: "🔴", label: "High Bounce Items", desc: "7 items bounce rate >15%",        n:  7, color: "#DC2626", bg: "#FEE2E2" },
 ];
 
 const navItems = [
-  { icon: "⊞", label: "Overview",              active: true  },
-  { icon: "▣", label: "Inventory Analysis",    active: false },
-  { icon: "◈", label: "Consumption Analysis",  active: false },
-  { icon: "⊠", label: "Purchase Analysis",     active: false },
-  { icon: "◎", label: "Financial Analysis",    active: false },
-  { icon: "↘", label: "Bounce Analysis",       active: false },
-  { icon: "🔔", label: "Alerts & Notifications", active: false },
-  { icon: "▤", label: "Reports",               active: false },
-  { icon: "⚙", label: "Settings",              active: false },
+  { icon: "⊞", label: "Overview" },
+  { icon: "▣", label: "Inventory Analysis" },
+  { icon: "◈", label: "Consumption Analysis" },
+  { icon: "⊠", label: "Purchase Analysis" },
+  { icon: "◎", label: "Financial Analysis" },
+  { icon: "↘", label: "Bounce Analysis" },
+  { icon: "🔔", label: "Alerts & Notifications" },
+  { icon: "▤", label: "Reports" },
+  { icon: "⚙", label: "Settings" },
 ];
 
-function MiniSparkline({ data, color, up }) {
-  const pts = data.map((v, i) => ({ i, v }));
+const mobileNav = [
+  { icon: "⊞", label: "Overview" },
+  { icon: "▣", label: "Inventory" },
+  { icon: "◈", label: "Consumption" },
+  { icon: "🔔", label: "Alerts" },
+  { icon: "▤", label: "Reports" },
+];
+
+function Spark({ data, color }) {
+  const d = data.map((v, i) => ({ i, v }));
   return (
-    <ResponsiveContainer width={80} height={32}>
-      <LineChart data={pts}>
-        <Line type="monotone" dataKey="v" stroke={color} strokeWidth={1.8} dot={false} />
+    <ResponsiveContainer width={70} height={28}>
+      <LineChart data={d}>
+        <Line type="monotone" dataKey="v" stroke={color} strokeWidth={2} dot={false} />
       </LineChart>
     </ResponsiveContainer>
   );
 }
 
-function KPICard({ icon, iconBg, iconColor, label, value, unit, change, vsLabel, positive, sparkData, sparkColor }) {
-  const trendColor = positive ? COLORS.green : COLORS.red;
-  const arrow = positive ? "↑" : "↓";
+function KPICard({ icon, bg, label, value, unit, change, pos, spark, sparkColor }) {
   return (
     <div style={{
-      background: COLORS.white, borderRadius: 14, padding: "18px 20px",
-      border: `1px solid ${COLORS.border}`, flex: 1, minWidth: 160,
-      display: "flex", flexDirection: "column", gap: 8,
+      background: C.white, borderRadius: 12, padding: "16px",
+      border: `1px solid ${C.border}`, flex: "1 1 150px",
       boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+      minWidth: 0,
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: 10,
-          background: iconBg, display: "flex", alignItems: "center",
-          justifyContent: "center", fontSize: 18,
-        }}>{icon}</div>
-        <span style={{ fontSize: 13, color: COLORS.muted, fontWeight: 500, fontFamily: "Georgia, serif" }}>{label}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{icon}</div>
+        <span style={{ fontSize: 12, color: C.muted, fontWeight: 500, lineHeight: 1.2 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 28, fontWeight: 800, color: COLORS.text, lineHeight: 1, fontFamily: "Georgia, serif" }}>
-        {value} <span style={{ fontSize: 14, fontWeight: 500, color: COLORS.muted }}>{unit}</span>
+      <div style={{ fontSize: 22, fontWeight: 800, color: C.text, marginBottom: 8, lineHeight: 1 }}>
+        {value} <span style={{ fontSize: 12, fontWeight: 400, color: C.muted }}>{unit}</span>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 12, color: trendColor, fontWeight: 600 }}>
-          {arrow} {change} <span style={{ color: COLORS.muted, fontWeight: 400 }}>{vsLabel}</span>
+        <span style={{ fontSize: 11, color: pos ? C.green : C.red, fontWeight: 600 }}>
+          {pos ? "↑" : "↓"} {change} <span style={{ color: C.muted, fontWeight: 400 }}>vs Apr</span>
         </span>
-        <MiniSparkline data={sparkData} color={sparkColor} />
+        <Spark data={spark} color={sparkColor} />
       </div>
     </div>
   );
 }
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div style={{ background: "#fff", border: `1px solid ${COLORS.border}`, borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
-        <div style={{ fontWeight: 700, marginBottom: 6, color: COLORS.text }}>{label}</div>
-        {payload.map((p, i) => (
-          <div key={i} style={{ color: p.color, marginBottom: 2 }}>{p.name}: <b>{p.value}</b></div>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
+function TT({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${C.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 11, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+      <div style={{ fontWeight: 700, marginBottom: 4, color: C.text }}>{label}</div>
+      {payload.map((p, i) => <div key={i} style={{ color: p.color }}>{p.name}: <b>{p.value}</b></div>)}
+    </div>
+  );
+}
 
-export default function Dashboard() {
-  const [activePage, setActivePage] = useState("Overview");
-  const [now, setNow] = useState(new Date());
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [uploadVisible, setUploadVisible] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
+export default function App() {
+  const [page, setPage] = useState("Overview");
+  const [sidebar, setSidebar] = useState(true);
+  const [upload, setUpload] = useState(false);
+  const [time, setTime] = useState(new Date());
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 1000);
+    const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
 
-  const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
-  const dateStr = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile) setSidebar(false);
+      else setSidebar(true);
+    };
+    window.addEventListener("resize", handleResize);
+    handleResize();
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "Georgia, 'Times New Roman', serif", background: COLORS.bg, overflow: "hidden" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: C.bg, fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", position: "relative" }}>
 
-      {/* ── Sidebar ── */}
+      {/* ── SIDEBAR OVERLAY (mobile) ── */}
+      {isMobile && sidebar && (
+        <div onClick={() => setSidebar(false)} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 40
+        }} />
+      )}
+
+      {/* ── SIDEBAR ── */}
       <div style={{
-        width: sidebarOpen ? 220 : 0, minWidth: sidebarOpen ? 220 : 0,
-        background: COLORS.primary, display: "flex", flexDirection: "column",
-        transition: "width 0.3s, min-width 0.3s", overflow: "hidden",
-        boxShadow: "2px 0 12px rgba(0,0,0,0.15)",
+        width: 220, background: C.primary, display: "flex", flexDirection: "column",
+        flexShrink: 0, boxShadow: "2px 0 12px rgba(0,0,0,0.15)",
+        position: isMobile ? "fixed" : "relative",
+        top: 0, left: 0, height: "100vh", zIndex: 50,
+        transform: sidebar ? "translateX(0)" : "translateX(-220px)",
+        transition: "transform 0.3s ease",
       }}>
-        {/* Logo */}
-        <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 10, background: "rgba(255,255,255,0.15)",
-              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20,
-            }}>🏥</div>
+        <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid rgba(255,255,255,0.1)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🏥</div>
             <div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>Hospital Pharmacy</div>
-              <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 11 }}>KPI Dashboard</div>
+              <div style={{ color: "#fff", fontWeight: 700, fontSize: 13, lineHeight: 1.2 }}>Hospital Pharmacy</div>
+              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>KPI Dashboard</div>
             </div>
           </div>
         </div>
-
-        {/* Nav */}
-        <div style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
+        <div style={{ flex: 1, padding: "10px 8px", overflowY: "auto" }}>
           {navItems.map((item) => (
-            <div key={item.label}
-              onClick={() => setActivePage(item.label)}
-              style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "11px 14px", borderRadius: 10, marginBottom: 3,
-                background: activePage === item.label ? "rgba(255,255,255,0.18)" : "transparent",
-                color: activePage === item.label ? "#fff" : "rgba(255,255,255,0.62)",
-                cursor: "pointer", fontSize: 13, fontWeight: activePage === item.label ? 700 : 400,
-                transition: "all 0.15s",
-              }}
-              onMouseEnter={e => { if (activePage !== item.label) e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
-              onMouseLeave={e => { if (activePage !== item.label) e.currentTarget.style.background = "transparent"; }}
-            >
-              <span style={{ fontSize: 16 }}>{item.icon}</span>
-              <span>{item.label}</span>
+            <div key={item.label} onClick={() => { setPage(item.label); if (isMobile) setSidebar(false); }} style={{
+              display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+              borderRadius: 9, marginBottom: 2, cursor: "pointer",
+              background: page === item.label ? "rgba(255,255,255,0.18)" : "transparent",
+              color: page === item.label ? "#fff" : "rgba(255,255,255,0.6)",
+              fontSize: 13, fontWeight: page === item.label ? 700 : 400,
+            }}>
+              <span style={{ fontSize: 14, flexShrink: 0 }}>{item.icon}</span>
+              <span style={{ whiteSpace: "nowrap" }}>{item.label}</span>
             </div>
           ))}
         </div>
-
-        {/* Bottom info */}
-        <div style={{ padding: "16px 18px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏛️</div>
+        <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 }}>🏛️</div>
             <div>
-              <div style={{ color: "#fff", fontSize: 12, fontWeight: 600 }}>City Care Hospital</div>
-              <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11 }}>Pharmacy Department</div>
+              <div style={{ color: "#fff", fontSize: 11, fontWeight: 600 }}>City Care Hospital</div>
+              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>Pharmacy Dept</div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#4ADE80", boxShadow: "0 0 6px #4ADE80" }} />
-            <span style={{ color: "rgba(255,255,255,0.55)", fontSize: 11 }}>Data Last Updated</span>
-          </div>
-          <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 11, marginTop: 2, paddingLeft: 14 }}>
-            31 May 2025 &nbsp;{timeStr}
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4ADE80" }} />
+            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10 }}>
+              Live · {time.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* ── Main ── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* ── MAIN ── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, marginLeft: isMobile ? 0 : 0 }}>
 
-        {/* ── Top bar ── */}
+        {/* ── TOPBAR ── */}
         <div style={{
-          background: COLORS.white, borderBottom: `1px solid ${COLORS.border}`,
-          padding: "0 28px", height: 64, display: "flex", alignItems: "center",
-          justifyContent: "space-between", flexShrink: 0,
-          boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+          background: C.white, borderBottom: `1px solid ${C.border}`,
+          padding: "0 16px", height: 56, display: "flex", alignItems: "center",
+          justifyContent: "space-between", flexShrink: 0, boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+          position: "sticky", top: 0, zIndex: 30,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <button onClick={() => setSidebarOpen(s => !s)}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: COLORS.muted, padding: 4 }}>☰</button>
-            <div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.text }}>Dashboard Overview</div>
-              <div style={{ fontSize: 12, color: COLORS.muted }}>Real-time monitoring of pharmacy performance indicators</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            <button onClick={() => setSidebar(s => !s)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: C.muted, padding: 4, flexShrink: 0 }}>☰</button>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: isMobile ? 15 : 18, fontWeight: 800, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Dashboard Overview</div>
+              {!isMobile && <div style={{ fontSize: 11, color: C.muted }}>Real-time monitoring of pharmacy performance indicators</div>}
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            {/* Date range */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8, border: `1px solid ${COLORS.border}`,
-              borderRadius: 8, padding: "7px 14px", fontSize: 13, color: COLORS.text, background: "#fafbff",
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexShrink: 0 }}>
+            {!isMobile && (
+              <>
+                <div style={{ border: `1px solid ${C.border}`, borderRadius: 8, padding: "5px 10px", fontSize: 11, color: C.text, background: "#fafbff", whiteSpace: "nowrap" }}>
+                  📅 01–31 May 2025
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: C.green, whiteSpace: "nowrap" }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: C.green }} />Auto refresh: On
+                </div>
+              </>
+            )}
+            <button onClick={() => setUpload(v => !v)} style={{
+              background: C.primary, color: "#fff", border: "none",
+              borderRadius: 8, padding: isMobile ? "6px 10px" : "6px 14px",
+              fontSize: isMobile ? 11 : 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap"
             }}>
-              📅 01 May 2025 – 31 May 2025 ▾
+              {isMobile ? "📤" : "📤 Upload CSV"}
+            </button>
+            <div style={{ position: "relative", cursor: "pointer", flexShrink: 0 }}>
+              <span style={{ fontSize: 18 }}>🔔</span>
+              <div style={{ position: "absolute", top: -3, right: -3, width: 13, height: 13, borderRadius: "50%", background: "#EF4444", color: "#fff", fontSize: 8, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>3</div>
             </div>
-            {/* Filter */}
-            <button onClick={() => setFilterOpen(f => !f)} style={{
-              display: "flex", alignItems: "center", gap: 6, border: `1px solid ${COLORS.border}`,
-              borderRadius: 8, padding: "7px 14px", fontSize: 13, color: COLORS.text,
-              background: "#fafbff", cursor: "pointer",
-            }}>⚙ Filter</button>
-            {/* Auto refresh */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: COLORS.green }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.green }} />
-              Auto refresh: On
-            </div>
-            {/* Upload */}
-            <button onClick={() => setUploadVisible(v => !v)} style={{
-              background: COLORS.primary, color: "#fff", border: "none",
-              borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600,
-              cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-            }}>📤 Upload CSV</button>
-            {/* Bell */}
-            <div style={{ position: "relative", cursor: "pointer" }}>
-              <span style={{ fontSize: 20 }}>🔔</span>
-              <div style={{
-                position: "absolute", top: -4, right: -4, width: 16, height: 16,
-                borderRadius: "50%", background: "#EF4444", color: "#fff",
-                fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center",
-              }}>3</div>
-            </div>
-            {/* User */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ width: 34, height: 34, borderRadius: "50%", background: COLORS.primaryLight, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>👤</div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text }}>Pharmacist</div>
-                <div style={{ fontSize: 11, color: COLORS.muted }}>Admin</div>
-              </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+              <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>👤</div>
+              {!isMobile && <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: C.text }}>Pharmacist</div>
+                <div style={{ fontSize: 10, color: C.muted }}>Admin</div>
+              </div>}
             </div>
           </div>
         </div>
 
-        {/* Upload Banner */}
-        {uploadVisible && (
-          <div style={{
-            background: "#EFF6FF", borderBottom: `1px solid #BFDBFE`,
-            padding: "12px 28px", display: "flex", alignItems: "center", gap: 16, flexShrink: 0,
-          }}>
-            <span style={{ fontSize: 14, color: COLORS.blue, fontWeight: 600 }}>📂 Upload Today's Inventory CSV</span>
-            <input type="file" accept=".csv,.xlsx" style={{ fontSize: 13 }} />
-            <button onClick={() => setUploadVisible(false)} style={{
-              marginLeft: "auto", background: COLORS.blue, color: "#fff", border: "none",
-              borderRadius: 7, padding: "6px 16px", cursor: "pointer", fontSize: 13, fontWeight: 600,
-            }}>Process File</button>
-            <button onClick={() => setUploadVisible(false)} style={{
-              background: "none", border: "none", color: COLORS.muted, cursor: "pointer", fontSize: 18,
-            }}>✕</button>
+        {/* ── UPLOAD BANNER ── */}
+        {upload && (
+          <div style={{ background: "#EFF6FF", borderBottom: `1px solid #BFDBFE`, padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, flexShrink: 0, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 12, color: C.blue, fontWeight: 600 }}>📂 Upload Today's Inventory CSV / Excel</span>
+            <input type="file" accept=".csv,.xlsx" style={{ fontSize: 11, flex: 1, minWidth: 0 }} />
+            <button onClick={() => setUpload(false)} style={{ background: C.blue, color: "#fff", border: "none", borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>Process</button>
+            <button onClick={() => setUpload(false)} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 16 }}>✕</button>
           </div>
         )}
 
-        {/* ── Scrollable body ── */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
+        {/* ── BODY ── */}
+        <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "12px" : "20px", display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16, paddingBottom: isMobile ? 70 : 20 }}>
 
-          {/* ── KPI Cards Row ── */}
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-            <KPICard icon="📅" iconBg="#EEF2FF" label="Inventory Days"
-              value="64.2" unit="Days" change="5.3" vsLabel="vs Apr 2025"
-              positive={false} sparkData={[68,67,66,67,69,64]} sparkColor={COLORS.blue} />
-            <KPICard icon="〰" iconBg="#ECFDF5" label="Inventory Turnover"
-              value="5.68" unit="" change="0.45" vsLabel="vs Apr 2025"
-              positive={true} sparkData={[14,18,20,22,21,20]} sparkColor={COLORS.green} />
-            <KPICard icon="💰" iconBg="#FFFBEB" label="Holding Cost"
-              value="₹ 18.76" unit="L" change="8.2%" vsLabel="vs Apr 2025"
-              positive={false} sparkData={[26,36,44,52,65,78]} sparkColor={COLORS.orange} />
-            <KPICard icon="🔴" iconBg="#FFF1F2" label="Bounce Rate"
-              value="6.42" unit="%" change="1.8%" vsLabel="vs Apr 2025"
-              positive={true} sparkData={[14,14,13,13,12,11]} sparkColor={COLORS.red} />
-            <KPICard icon="📊" iconBg="#F5F3FF" label="Stock Value"
-              value="₹ 2.35" unit="Cr" change="6.7%" vsLabel="vs Apr 2025"
-              positive={true} sparkData={[2.1,2.15,2.2,2.25,2.3,2.35]} sparkColor={COLORS.purple} />
+          {/* ── KPI CARDS ── */}
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <KPICard icon="📅" bg="#EEF2FF" label="Inventory Days"     value="64.2" unit="Days" change="5.3"  pos={false} spark={[68,67,66,67,69,64]} sparkColor={C.blue}   />
+            <KPICard icon="📈" bg="#ECFDF5" label="Inventory Turnover" value="5.68" unit=""     change="0.45" pos={true}  spark={[14,18,20,22,21,20]} sparkColor={C.green}  />
+            <KPICard icon="💰" bg="#FFFBEB" label="Holding Cost"       value="₹18.76" unit="L" change="8.2%" pos={false} spark={[26,36,44,52,65,78]} sparkColor={C.orange} />
+            <KPICard icon="🔴" bg="#FFF1F2" label="Bounce Rate"        value="6.42" unit="%"   change="1.8%" pos={true}  spark={[14,14,13,13,12,11]} sparkColor={C.red}    />
+            <KPICard icon="📊" bg="#F5F3FF" label="Stock Value"        value="₹2.35" unit="Cr" change="6.7%" pos={true}  spark={[2.1,2.15,2.2,2.25,2.3,2.35]} sparkColor={C.purple} />
           </div>
 
-          {/* ── Middle row: Trend + Donut ── */}
-          <div style={{ display: "flex", gap: 20 }}>
+          {/* ── TREND + DONUT ── */}
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
 
-            {/* KPI Trend */}
-            <div style={{
-              flex: 1.4, background: COLORS.white, borderRadius: 14, padding: "22px 24px",
-              border: `1px solid ${COLORS.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.text }}>KPI Trend Overview</span>
-                <select style={{
-                  border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "5px 12px",
-                  fontSize: 13, color: COLORS.text, background: "#fafbff", cursor: "pointer",
-                }}>
-                  <option>6 Months</option>
-                  <option>3 Months</option>
-                  <option>12 Months</option>
+            {/* KPI TREND */}
+            <div style={{ flex: "1 1 320px", background: C.white, borderRadius: 12, padding: "18px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>KPI Trend Overview</span>
+                <select style={{ border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 8px", fontSize: 11, color: C.text, background: "#fafbff" }}>
+                  <option>6 Months</option><option>3 Months</option>
                 </select>
               </div>
-              {/* Legend */}
-              <div style={{ display: "flex", gap: 20, marginBottom: 14, flexWrap: "wrap" }}>
-                {[
-                  { color: COLORS.blue,   label: "Inventory Days" },
-                  { color: COLORS.green,  label: "Turnover Ratio" },
-                  { color: COLORS.orange, label: "Holding Cost (L)" },
-                  { color: COLORS.red,    label: "Bounce Rate (%)" },
-                ].map(l => (
-                  <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: COLORS.muted }}>
-                    <div style={{ width: 24, height: 3, borderRadius: 2, background: l.color }} />
-                    {l.label}
+              <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+                {[{ color: C.blue, label: "Inv Days" }, { color: C.green, label: "Turnover" }, { color: C.orange, label: "Holding" }, { color: C.red, label: "Bounce" }].map(l => (
+                  <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: C.muted }}>
+                    <div style={{ width: 16, height: 3, background: l.color, borderRadius: 2 }} />{l.label}
                   </div>
                 ))}
               </div>
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={trendData} margin={{ top: 4, right: 10, bottom: 0, left: -10 }}>
+              <ResponsiveContainer width="100%" height={isMobile ? 160 : 200}>
+                <LineChart data={trendData} margin={{ top: 4, right: 10, bottom: 0, left: -15 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11, fill: COLORS.muted }} />
-                  <YAxis yAxisId="left" tick={{ fontSize: 11, fill: COLORS.muted }} />
-                  <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: COLORS.muted }} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Line yAxisId="left" type="monotone" dataKey="invDays" stroke={COLORS.blue} strokeWidth={2.5} dot={{ r: 4, fill: COLORS.blue }} name="Inventory Days" />
-                  <Line yAxisId="right" type="monotone" dataKey="turnover" stroke={COLORS.green} strokeWidth={2.5} dot={{ r: 4, fill: COLORS.green }} name="Turnover Ratio" />
-                  <Line yAxisId="left" type="monotone" dataKey="holding" stroke={COLORS.orange} strokeWidth={2.5} dot={{ r: 4, fill: COLORS.orange }} name="Holding Cost (L)" />
-                  <Line yAxisId="right" type="monotone" dataKey="bounce" stroke={COLORS.red} strokeWidth={2.5} dot={{ r: 4, fill: COLORS.red }} name="Bounce Rate (%)" />
+                  <XAxis dataKey="m" tick={{ fontSize: 10, fill: C.muted }} />
+                  <YAxis tick={{ fontSize: 10, fill: C.muted }} />
+                  <Tooltip content={<TT />} />
+                  <Line type="monotone" dataKey="d" stroke={C.blue}   strokeWidth={2.5} dot={{ r: 3, fill: C.blue }}   name="Inv Days" />
+                  <Line type="monotone" dataKey="t" stroke={C.green}  strokeWidth={2.5} dot={{ r: 3, fill: C.green }}  name="Turnover" />
+                  <Line type="monotone" dataKey="h" stroke={C.orange} strokeWidth={2.5} dot={{ r: 3, fill: C.orange }} name="Holding" />
+                  <Line type="monotone" dataKey="b" stroke={C.red}    strokeWidth={2.5} dot={{ r: 3, fill: C.red }}    name="Bounce" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
 
-            {/* Inventory by Category */}
-            <div style={{
-              flex: 1, background: COLORS.white, borderRadius: 14, padding: "22px 24px",
-              border: `1px solid ${COLORS.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.text }}>Inventory Value by Category</span>
-                <select style={{ border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "5px 10px", fontSize: 12, color: COLORS.text, background: "#fafbff" }}>
-                  <option>By Category</option>
-                </select>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                <div style={{ position: "relative", width: 160, height: 160, flexShrink: 0 }}>
-                  <ResponsiveContainer width={160} height={160}>
+            {/* DONUT */}
+            <div style={{ flex: "1 1 260px", background: C.white, borderRadius: 12, padding: "18px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 14 }}>Inventory Value by Category</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ position: "relative", width: 130, height: 130, flexShrink: 0, margin: "0 auto" }}>
+                  <ResponsiveContainer width={130} height={130}>
                     <PieChart>
-                      <Pie data={categoryData} cx={75} cy={75} innerRadius={48} outerRadius={72}
-                        dataKey="value" startAngle={90} endAngle={-270} paddingAngle={2}>
+                      <Pie data={categoryData} cx={60} cy={60} innerRadius={42} outerRadius={62} dataKey="v" paddingAngle={2}>
                         {categoryData.map((d, i) => <Cell key={i} fill={d.color} />)}
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
-                  <div style={{
-                    position: "absolute", top: "50%", left: "50%",
-                    transform: "translate(-50%,-50%)", textAlign: "center",
-                  }}>
-                    <div style={{ fontSize: 10, color: COLORS.muted }}>Total</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: COLORS.text }}>₹ 2.35 Cr</div>
+                  <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", textAlign: "center" }}>
+                    <div style={{ fontSize: 9, color: C.muted }}>Total</div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: C.text }}>₹2.35Cr</div>
                   </div>
                 </div>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 7, minWidth: 140 }}>
                   {categoryData.map((d, i) => (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
-                      <span style={{ flex: 1, color: COLORS.text }}>{d.name}</span>
-                      <span style={{ color: COLORS.muted, minWidth: 56, textAlign: "right" }}>{d.amount}</span>
-                      <span style={{ color: COLORS.muted, minWidth: 42, textAlign: "right" }}>({d.value}%)</span>
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
+                      <span style={{ flex: 1, color: C.text }}>{d.name}</span>
+                      <span style={{ color: C.muted }}>{d.amt}</span>
+                      <span style={{ color: C.muted }}>({d.v}%)</span>
                     </div>
                   ))}
                 </div>
               </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 16, paddingTop: 14, borderTop: `1px solid ${COLORS.border}` }}>
-                <div>
-                  <div style={{ fontSize: 12, color: COLORS.muted }}>Total Items</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.text }}>4,782</div>
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 12, color: COLORS.muted }}>Active Items</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: COLORS.text }}>4,125 <span style={{ fontSize: 13, color: COLORS.green }}>(86.3%)</span></div>
-                </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+                <div><div style={{ fontSize: 10, color: C.muted }}>Total Items</div><div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>4,782</div></div>
+                <div style={{ textAlign: "right" }}><div style={{ fontSize: 10, color: C.muted }}>Active Items</div><div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>4,125 <span style={{ fontSize: 11, color: C.green }}>(86.3%)</span></div></div>
               </div>
             </div>
           </div>
 
-          {/* ── Bottom row ── */}
-          <div style={{ display: "flex", gap: 20 }}>
+          {/* ── BOTTOM ROW ── */}
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
 
-            {/* Top 5 Fast Moving */}
-            <div style={{
-              flex: 1.2, background: COLORS.white, borderRadius: 14, padding: "22px 24px",
-              border: `1px solid ${COLORS.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.text }}>Top 5 Fast Moving Items</span>
-                <button style={{ background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "5px 12px", fontSize: 12, color: COLORS.muted, cursor: "pointer" }}>View All</button>
+            {/* TABLE */}
+            <div style={{ flex: "1 1 280px", background: C.white, borderRadius: 12, padding: "18px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Top 5 Fast Moving Items</span>
+                <button style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 8px", fontSize: 11, color: C.muted, cursor: "pointer" }}>View All</button>
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ borderBottom: `2px solid ${COLORS.border}` }}>
-                    {["Item Name", "Consumption (Units)", "Turnover", "Trend"].map(h => (
-                      <th key={h} style={{ textAlign: "left", padding: "8px 10px 10px", color: COLORS.muted, fontWeight: 600, fontSize: 12 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {fastMoving.map((row, i) => (
-                    <tr key={i} style={{ borderBottom: `1px solid ${COLORS.border}` }}
-                      onMouseEnter={e => e.currentTarget.style.background = "#fafbff"}
-                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                      <td style={{ padding: "10px 10px", color: COLORS.text, fontWeight: 500 }}>{row.name}</td>
-                      <td style={{ padding: "10px 10px", color: COLORS.text }}>{row.consumption}</td>
-                      <td style={{ padding: "10px 10px", color: COLORS.text, fontWeight: 600 }}>{row.turnover}</td>
-                      <td style={{ padding: "10px 10px" }}>
-                        <MiniSparkline data={row.trend} color={row.up ? COLORS.green : COLORS.red} />
-                      </td>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 300 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `2px solid ${C.border}` }}>
+                      {["Item Name", "Units", "Turnover", "Trend"].map(h => (
+                        <th key={h} style={{ textAlign: "left", padding: "6px 8px 8px", color: C.muted, fontWeight: 600, fontSize: 11, whiteSpace: "nowrap" }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {items.map((row, i) => (
+                      <tr key={i} style={{ borderBottom: `1px solid ${C.border}` }}>
+                        <td style={{ padding: "8px", color: C.text, fontWeight: 500, whiteSpace: "nowrap" }}>{row.name}</td>
+                        <td style={{ padding: "8px", color: C.text, whiteSpace: "nowrap" }}>{row.c}</td>
+                        <td style={{ padding: "8px", color: C.text, fontWeight: 600, whiteSpace: "nowrap" }}>{row.t}</td>
+                        <td style={{ padding: "8px" }}>
+                          <Spark data={row.up ? [3, 4, 5, 5, 6, 7] : [6, 5, 5, 4, 4, 5]} color={row.up ? C.green : C.red} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* Alerts Summary */}
-            <div style={{
-              flex: 1, background: COLORS.white, borderRadius: 14, padding: "22px 24px",
-              border: `1px solid ${COLORS.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.text }}>Alerts Summary</span>
-                <button style={{ background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "5px 12px", fontSize: 12, color: COLORS.muted, cursor: "pointer" }}>View All</button>
+            {/* ALERTS */}
+            <div style={{ flex: "1 1 220px", background: C.white, borderRadius: 12, padding: "18px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Alerts Summary</span>
+                <button style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 8px", fontSize: 11, color: C.muted, cursor: "pointer" }}>View All</button>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {alerts.map((a, i) => (
-                  <div key={i} style={{
-                    display: "flex", alignItems: "center", gap: 14,
-                    padding: "12px 14px", borderRadius: 10, background: a.bg,
-                    border: `1px solid ${a.color}22`, cursor: "pointer",
-                    transition: "transform 0.15s",
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.transform = "translateX(3px)"}
-                  onMouseLeave={e => e.currentTarget.style.transform = "translateX(0)"}>
-                    <span style={{ fontSize: 20 }}>{a.emoji}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text }}>{a.label}</div>
-                      <div style={{ fontSize: 11, color: COLORS.muted, marginTop: 2 }}>{a.desc}</div>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 9, background: a.bg, border: `1px solid ${a.color}22`, cursor: "pointer" }}>
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>{a.e}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.label}</div>
+                      <div style={{ fontSize: 10, color: C.muted }}>{a.desc}</div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 18, fontWeight: 800, color: a.color }}>{a.count}</span>
-                      <span style={{ fontSize: 14, color: COLORS.muted }}>›</span>
-                    </div>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: a.color, flexShrink: 0 }}>{a.n}</span>
+                    <span style={{ color: C.muted, flexShrink: 0 }}>›</span>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Bounce Rate Trend */}
-            <div style={{
-              flex: 1, background: COLORS.white, borderRadius: 14, padding: "22px 24px",
-              border: `1px solid ${COLORS.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: COLORS.text }}>Bounce Rate Trend</span>
-                <button style={{ background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 7, padding: "5px 12px", fontSize: 12, color: COLORS.muted, cursor: "pointer" }}>View All</button>
+            {/* BOUNCE BAR */}
+            <div style={{ flex: "1 1 220px", background: C.white, borderRadius: 12, padding: "18px", border: `1px solid ${C.border}`, boxShadow: "0 1px 4px rgba(0,0,0,0.06)", minWidth: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>Bounce Rate Trend</span>
+                <button style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: 7, padding: "4px 8px", fontSize: 11, color: C.muted, cursor: "pointer" }}>View All</button>
               </div>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={bounceBarData} margin={{ top: 4, right: 0, left: -20, bottom: 0 }}>
+              <ResponsiveContainer width="100%" height={160}>
+                <BarChart data={bounceData} margin={{ top: 4, right: 0, left: -22, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: COLORS.muted }}
-                    tickFormatter={v => v.replace(" 2024","").replace(" 2025","")} />
-                  <YAxis tick={{ fontSize: 10, fill: COLORS.muted }} tickFormatter={v => `${v}%`} />
-                  <Tooltip formatter={(v) => [`${v}%`, "Bounce Rate"]} />
-                  <Bar dataKey="rate" fill={COLORS.red} radius={[4, 4, 0, 0]}>
-                    {bounceBarData.map((entry, i) => (
-                      <Cell key={i} fill={entry.rate > 8 ? "#EF4444" : "#F87171"} />
-                    ))}
+                  <XAxis dataKey="m" tick={{ fontSize: 10, fill: C.muted }} />
+                  <YAxis tick={{ fontSize: 10, fill: C.muted }} tickFormatter={v => `${v}%`} />
+                  <Tooltip formatter={v => [`${v}%`, "Bounce Rate"]} />
+                  <Bar dataKey="r" radius={[4, 4, 0, 0]}>
+                    {bounceData.map((d, i) => <Cell key={i} fill={d.r > 8 ? "#EF4444" : "#F87171"} />)}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: COLORS.muted, marginTop: 4, paddingTop: 4 }}>
-                {bounceBarData.map((d, i) => (
-                  <span key={i} style={{ color: d.rate > 8 ? COLORS.red : COLORS.green, fontWeight: 600 }}>{d.rate}%</span>
+              <div style={{ display: "flex", justifyContent: "space-around", fontSize: 10, marginTop: 4 }}>
+                {bounceData.map((d, i) => (
+                  <span key={i} style={{ color: d.r > 8 ? C.red : C.green, fontWeight: 700 }}>{d.r}%</span>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Footer */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: COLORS.muted, paddingTop: 4 }}>
+          {/* FOOTER */}
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: C.muted, paddingTop: 4, flexWrap: "wrap", gap: 8 }}>
             <span>© 2025 City Care Hospital · Pharmacy Department</span>
-            <div style={{ display: "flex", gap: 20 }}>
+            <div style={{ display: "flex", gap: 14 }}>
               <span>Dashboard v1.0.0</span>
               <span style={{ cursor: "pointer", textDecoration: "underline" }}>Privacy Policy</span>
-              <span style={{ cursor: "pointer", textDecoration: "underline" }}>Terms of Use</span>
             </div>
           </div>
-
         </div>
       </div>
+
+      {/* ── MOBILE BOTTOM NAV ── */}
+      {isMobile && (
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, height: 60,
+          background: C.white, borderTop: `1px solid ${C.border}`,
+          display: "flex", alignItems: "center", justifyContent: "space-around",
+          zIndex: 30, boxShadow: "0 -2px 10px rgba(0,0,0,0.08)",
+        }}>
+          {mobileNav.map((item) => (
+            <div key={item.label} onClick={() => setPage(item.label)} style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+              cursor: "pointer", flex: 1, padding: "6px 0",
+            }}>
+              <span style={{ fontSize: 18 }}>{item.icon}</span>
+              <span style={{ fontSize: 9, color: page === item.label ? C.primary : C.muted, fontWeight: page === item.label ? 700 : 400 }}>
+                {item.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
