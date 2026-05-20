@@ -80,13 +80,13 @@ function Spark({ data, color }) {
   );
 }
 
-function KPICard({ icon, bg, label, value, unit, change, pos, spark, sparkColor }) {
+function KPICard({ icon, bg, label, value, unit, change, pos, spark, sparkColor, minW }) {
   return (
     <div style={{
       background: C.white, borderRadius: 12, padding: "16px",
-      border: `1px solid ${C.border}`, flex: "1 1 150px",
+      border: `1px solid ${C.border}`, flex: "1 1 170px",
       boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
-      minWidth: 0,
+      minWidth: minW || "170px", maxWidth: "100%",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <div style={{ width: 32, height: 32, borderRadius: 8, background: bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>{icon}</div>
@@ -262,11 +262,11 @@ export default function App() {
 
           {/* ── KPI CARDS ── */}
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <KPICard icon="📅" bg="#EEF2FF" label="Inventory Days"     value="64.2" unit="Days" change="5.3"  pos={false} spark={[68,67,66,67,69,64]} sparkColor={C.blue}   />
-            <KPICard icon="📈" bg="#ECFDF5" label="Inventory Turnover" value="5.68" unit=""     change="0.45" pos={true}  spark={[14,18,20,22,21,20]} sparkColor={C.green}  />
-            <KPICard icon="💰" bg="#FFFBEB" label="Holding Cost"       value="₹18.76" unit="L" change="8.2%" pos={false} spark={[26,36,44,52,65,78]} sparkColor={C.orange} />
-            <KPICard icon="🔴" bg="#FFF1F2" label="Bounce Rate"        value="6.42" unit="%"   change="1.8%" pos={true}  spark={[14,14,13,13,12,11]} sparkColor={C.red}    />
-            <KPICard icon="📊" bg="#F5F3FF" label="Stock Value"        value="₹2.35" unit="Cr" change="6.7%" pos={true}  spark={[2.1,2.15,2.2,2.25,2.3,2.35]} sparkColor={C.purple} />
+            <KPICard icon="📅" bg="#EEF2FF" label="Inventory Days"     value="64.2" unit="Days" change="5.3"  pos={false} spark={[68,67,66,67,69,64]} sparkColor={C.blue}   minW={isMobile?"45%":"170px"} />
+            <KPICard icon="📈" bg="#ECFDF5" label="Inventory Turnover" value="5.68" unit=""     change="0.45" pos={true}  spark={[14,18,20,22,21,20]} sparkColor={C.green}   minW={isMobile?"45%":"170px"} />
+            <KPICard icon="💰" bg="#FFFBEB" label="Holding Cost"       value="₹18.76" unit="L" change="8.2%" pos={false} spark={[26,36,44,52,65,78]} sparkColor={C.orange}  minW={isMobile?"45%":"170px"} />
+            <KPICard icon="🔴" bg="#FFF1F2" label="Bounce Rate"        value="6.42" unit="%"   change="1.8%" pos={true}  spark={[14,14,13,13,12,11]} sparkColor={C.red}     minW={isMobile?"45%":"170px"} />
+            <KPICard icon="📊" bg="#F5F3FF" label="Stock Value"        value="₹2.35" unit="Cr" change="6.7%" pos={true}  spark={[2.1,2.15,2.2,2.25,2.3,2.35]} sparkColor={C.purple} minW={isMobile?"45%":"170px"} />
           </div>
 
           {/* ── TREND + DONUT ── */}
